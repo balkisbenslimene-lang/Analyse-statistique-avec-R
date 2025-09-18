@@ -1,0 +1,330 @@
+---
+title: "Projet 1 : Base Alimentaire"
+section 2 : Analyse des Dépenses Alimentaires Moyennes par l'Analyse en Composantes Principales (ACP)
+author: "Balkis Benslimene"
+output: html_notebook
+---
+# 1.  Introduction
+Le jeu de données intitulé « Base Alimentaire » présente les dépenses annuelles moyennes de consommation de 12 individus sur différents produits alimentaires. Chaque individu est identifié par un code (IDEN).
+
+Ce projet s’inscrit dans le cadre de l’exploration et de l’analyse de données de consommation alimentaire à l’aide de techniques de data mining, notamment l’Analyse en Composantes Principales (ACP).
+Les variables étudiées incluent : pain, légumes, fruits, viande, volaille, lait, vin, la catégorie socio-professionnelle (CSP) et le nombre d’enfants à charge.
+
+### Objectifs de l’étude :
+* Identifier des structures latentes dans les habitudes de consommation.
+* Réduire la dimensionnalité des données tout en conservant l’essentiel de l’information.
+* Visualiser la répartition des individus selon leurs profils alimentaires.
+* Identifier les facteurs principaux influençant les dépenses.
+
+# 2. Chargement et Structure des Données
+```{r setup}
+knitr::opts_chunk$set(root.dir = "C:/Users/balkis/Desktop/data minig/")
+
+```
+
+
+```{r}
+install.packages("readxl")  # qui est installer dans mon cas 
+library(readxl)
+df <- read_excel("Base alimentaire.xls")
+head(df)
+
+
+```
+
+### on va créer un tableau interactif
+
+```{r}
+library(DT) # création d'un tableau interactif 
+datatable(df)
+
+```
+
+### Structure du dataset
+
+La fonction str() nous montrera la structure des données, c'est-à-dire le nombre de lignes et colonnes, les types de chaque variable (numérique, facteur, etc.), et quelques valeurs des premières observations.
+
+```{r}
+str(df)
+```
+* 12 observations et 10 variables.
+* IDEN est de type caractère → variable supplémentaire (non utilisée dans l’ACP).
+* Les autres variables sont numériques, dont CSP et enfants à considérer comme catégorielles.
+
+# 3. Analyse univariée
+
+## Dimensions du dataset
+Connaître le nombre de lignes et de colonnes est essentiel pour avoir une vue d'ensemble de la taille du dataset.
+
+```{r}
+dimensions <-dim(df)
+n_lignes <- dimensions[1]
+n_colonnes <- dimensions[2]
+message <- paste("Notre data est composées de " , n_colonnes, "colonnes et",  n_lignes,  "lignes " )
+message
+```
+## Type des variables
+Indiquer les types de chaque variable (numérique, catégorique, etc.) peut fournir des informations utiles sur la manière dont les données doivent être analysées.
+```{r}
+types_variables <- sapply(df, class)
+types_variables
+
+```
+* Majoritairement numériques.
+
+## Résumé statistique des variables numériques :
+Présente un résumé des variables numériques, notamment les statistiques descriptives (moyenne, médiane, écart-type, minimum, maximum, etc.). Cela permet de mieux comprendre la distribution des données.
+```{r}
+summary(df)
+```
+* Variables comme viande et volaille présentent une forte dispersion.
+* CSP varie entre (1 = manœuvre, 2 = employé et 3 = cadre)  
+* Nombre d’enfants de 2 à 5.
+
+
+
+# 4. Prétraitement des données
+## Séparer les variables quantitatives
+
+```{r}
+library(dplyr)
+
+donnees_quant <- df %>% select(pain, légumes, fruits, viande, volaille, lait, vin)
+
+
+```
+
+
+ Permet de visualiser les corrélations fortes (par ex. fruits , viande et volaille).
+ 
+## Normalisation des données 
+
+```{r}
+donnees_norm <- scale(donnees_quant)
+donnees_norm
+
+```
+## Calculer les corrélations : corrélogramme
+
+```{r}
+library(corrplot)
+cor_matrix <- cor(donnees_norm)
+corrplot(cor_matrix, method = "color", addCoef.col = "black", tl.cex = 0.8)
+
+```
+### correlartion Positive
+* il y a une forte correlartion positive entre légumes et (fruits , viandes , volaille et lait).
+* il y a une forte corrélation positive entre pain et lait .
+* il y a une forte corrélation positive entre fruites entre (viandes et volaille)
+
+* il ya une corrrélation moyenne entre lait et (fruits , viande et volaille)
+
+### correlartion Négative
+* il ya  moyenne corelation négative entre  vin et (légumes , fruits , viandes et volailles)  .
+
+
+
+
+##  Garder les variables qualitatives à part
+
+```{r}
+csp <- as.factor(df$CSP)
+
+```
+# 5. Analyse en Composantes Principales (ACP)
+## Normaliser les données - Réalisation de l’ACP
+
+```{r}
+res_pca <- PCA(df, quanti.sup = "enfants" , quali.sup = c("IDEN","CSP"), graph = FALSE)
+
+```
+## Valeurs propres (inertie)
+```{r}
+res_pca$eig
+
+```
+
+
+## Graphe des valeurs propres
+
+```{r}
+library(factoextra)
+
+# Visualisation des valeurs propres pour savoir combien de composantes à retenir
+fviz_eig(res_pca, addlabels = TRUE, ylim = c(0, 50))
+
+```
+* On a 2 dimennsions qui sont superieur à 20%. 
+
+## Intérpretation des varibles 
+
+```{r}
+res_pca$var$contrib
+res_pca$var$coord
+res_pca$var$cos2
+```
+## Graphe des variables
+```{r}
+fviz_pca_var(res_pca, col.var = "cos2" , gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07") , repel = TRUE)
+
+```
+* l’axe horizontal (Dim1) :
+Il oppose le vin aux autres produits comme le pain, le lait, les légumes, la viande, la volaille et les fruits.
+Les produits comme pain, viande, légumes vont souvent ensemble. Cela signifie que quand une personne consomme beaucoup de vin, elle a tendance à moins consommer les autres produits
+
+* l’axe vertical (Dim2) :
+Il distingue un peu plus le pain et le lait, qui sont en haut, et la variable enfants, qui est proche d’eux.
+
+
+
+## Intérpretation des individus 
+```{r}
+res_pca$ind$contrib
+res_pca$ind$coord
+res_pca$ind$cos2
+```
+## Graphe des individus
+
+
+
+
+```{r}
+library(factoextra)
+library(ggrepel)
+
+# Créer un data frame avec les coordonnées des individus
+ind_coord <- as.data.frame(res_pca$ind$coord)
+
+# Ajouter l'identifiant IDEN à chaque individu
+ind_coord$IDEN <- df$IDEN  # <-- Attention à la casse : 'NewData' et pas 'Newdata'
+
+# Visualiser l'ACP avec couleurs selon la contribution
+p <- fviz_pca_ind(res_pca,
+                  col.ind = "contrib",
+                  gradient.cols = c("lightblue", "blue", "darkblue"),
+                  geom = "point",
+                  label = "none",
+                  repel = TRUE)
+
+# Ajouter les étiquettes avec les IDEN
+p + geom_text_repel(data = ind_coord,
+                    aes(x = Dim.1, y = Dim.2, label = IDEN),
+                    size = 3)
+```
+Chaque point bleu représente un individu et plus ils sont proches, plus leurs comportements sont similaires. 
+** Par exemple, CA5 est très différent de EM2, tandis que MA3, MA2 et EM3 partagent des comportements similaires. 
+** Les points bleus foncés indiquent les individus les plus influents dans l'analyse, comme CA5, EM2 et MA5, tandis que les points moins bleus (CA2, EM4) sont moins importants.
+
+## Classification des individus en fonction des composantes principales
+
+
+
+
+```{r}
+ set.seed(123)  # pour la reproductibilité
+
+# Appliquer K-means sur les deux premières dimensions de l'ACP
+km_res <- kmeans(res_pca$ind$coord[, 1:2], centers = 3, nstart = 25)
+
+# Ajouter les clusters à la table des individus
+ind_coord$cluster <- as.factor(km_res$cluster)
+
+```
+
+```{r}
+# Visualisation avec coloration par cluster
+p <- fviz_pca_ind(res_pca,
+                  geom = "point",
+                  label = "none",
+                  col.ind = ind_coord$cluster, # colorer selon cluster
+                  palette = "Dark2",
+                  addEllipses = TRUE, 
+                  ellipse.type = "convex",
+                  legend.title = "Cluster")
+
+# Ajouter les labels IDEN
+p + geom_text_repel(data = ind_coord,
+                    aes(x = Dim.1, y = Dim.2, label = IDEN),
+                    size = 3)
+
+```
+
+### Visualisation des individus
+```{r}
+# Visualisation des individus sur le plan principal
+fviz_pca_ind(res_pca, col.ind = csp, # Colorer les points par CSP
+             palette = "jco", 
+             addEllipses = TRUE, 
+             ellipse.type = "confidence",
+             legend.title = "CSP")
+
+```
+
+```{r}
+library(factoextra)
+library(ggrepel)
+
+# Extraire les coordonnées des individus
+ind_coord <- as.data.frame(res_pca$ind$coord)
+ind_coord$IDEN <- df$IDEN
+ind_coord$CSP <- df$CSP
+
+# Visualisation personnalisée des individus
+p <- fviz_pca_ind(res_pca,
+                  label = "none",            # on ajoutera les labels manuellement
+                  habillage = "CSP",         # colorer selon CSP
+                  palette = "jco",           # palette de couleurs
+                  addEllipses = TRUE,        # ajouter les ellipses par groupe
+                  ellipse.type = "confidence", 
+                  repel = TRUE,
+                  legend.title = "CSP")
+
+# Ajouter les noms des individus (IDEN)
+p + geom_text_repel(data = ind_coord,
+                    aes(x = Dim.1, y = Dim.2, label = IDEN),
+                    size = 3)
+
+```
+
+
+
+### Graphe des variables et des individus
+
+```{r}
+
+library(factoextra)
+library(ggrepel)
+
+# Créer un data frame avec les coordonnées des individus
+ind_coord <- as.data.frame(res_pca$ind$coord)
+ind_coord$IDEN <- df$IDEN  # Associer les IDEN
+
+# Créer le biplot avec coloration des individus et des variables
+p <- fviz_pca_biplot(res_pca,
+                     col.ind = "cos2",    # couleur selon la qualité de représentation
+                     col.var = "contrib", # couleur des variables selon leur contribution
+                     gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                     repel = TRUE)     
+
+
+# Ajouter les étiquettes avec les IDEN
+p + geom_text_repel(data = ind_coord,
+                    aes(x = Dim.1, y = Dim.2, label = IDEN),
+                    size = 3)
+```
+
+* Les flèches proches les unes des autres (comme fruits, viande, légumes, volaille) indiquent des produits consommés ensemble, souvent par les mêmes profils (CA3, CA4, CA5).
+
+* Les groupes proches d’une flèche sont influencés  par la variable correspondante. 
+* Ainsi, EM5 se trouve proche des flèches lait et enfants, traduisant une consommation importante de ces produits, potentiellement liée à la présence d’enfants dans le foyer.
+
+# 7. Conclusion
+  Cette ACP a permis de :
+
+  * Réduire la complexité des données sans perte majeure d’information.
+  * Détecter des regroupements d’individus selon leurs profils de consommation.
+  * Comprendre les influences de certaines variables (ex. CSP) sur la consommation.
+
+
+
+
